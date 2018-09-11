@@ -20,6 +20,7 @@ namespace LunchCrawler
     {
         private static readonly HttpClient client = new HttpClient();
         private static readonly IWebDriver browser = new ChromeDriver("C:\\chromeDriver\\");
+
         //        private IWebDriver browser;
         //        FirefoxProfile profile = new FirefoxProfile();
         //        profile.setPreference("javascript.enabled", false);
@@ -35,24 +36,9 @@ namespace LunchCrawler
             var filter = builder.Exists("id");
             var restourants = repository.GetMany(filter);
 
-            if (restourants.Count == 0)
+            try
             {
-                Search("restoranas");
-                Search("kavine");
-                Search("uzeiga");
-                Search("valgykla");
-                Search("picerija");
-                Search("baras");
-                Search("pubas");
-                Search("republicbaras");
-                Search("šašlykinė");
-                Search("užeiga");
-            }
-            else
-            {
-                var restourantTocheck = restourants.First();
-
-                if (restourants.Count == 0 || restourantTocheck.CreatedAt < DateTime.Now.AddHours(-12))
+                if (restourants.Count == 0)
                 {
                     Search("restoranas");
                     Search("kavine");
@@ -64,7 +50,35 @@ namespace LunchCrawler
                     Search("republicbaras");
                     Search("šašlykinė");
                     Search("užeiga");
+                    Search("Coffee");
+                    Search("Sotus.vilkas.kaunas");
+                    Search("restourant");
                 }
+                else
+                {
+                    var restourantTocheck = restourants.First();
+
+                    if (restourants.Count == 0 || restourantTocheck.CreatedAt < DateTime.Now.AddHours(-12))
+                    {
+                        Search("restoranas");
+                        Search("restourant");
+                        Search("kavine");
+                        Search("uzeiga");
+                        Search("valgykla");
+                        Search("picerija");
+                        Search("baras");
+                        Search("pubas");
+                        Search("republicbaras");
+                        Search("šašlykinė");
+                        Search("užeiga");
+                        Search("Coffee");
+                        Search("Sotus.vilkas.kaunas");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+
             }
 
             restourants = repository.GetMany(filter);
@@ -118,14 +132,16 @@ namespace LunchCrawler
             }
 
             Console.WriteLine("Done");
+
             browser.Close();
             browser.Dispose();
+
             Environment.Exit(0);
         }
 
         static void Search(string query)
         {
-            var tokken = "EAADuFSmwLuEBACcpZBZCrVz3DmzKMUnorIj6bMrEyURWXN5ZC5vI9GR40CW0bx0szAIZAd5bzoTHWIQQPzv8rtkuEKLG3l5eomxbV5GXCVg49Am5RSJMxd8eODwYlef1Pjqe4JeKCHGADYsaxl1lLxVi4vgs4YBtLMhZBJTNArQqyui6gxl6O6nPZCpclP7xvxJaec0QfZArwZDZD";
+            var tokken = "EAADuFSmwLuEBACdHJLCTdZCepNfUk0MPkpOOZAkAReyjeLa9vpWjBZA7fVUMQ4S66AQfW3v9zZBkb2DM89czFBqJZAJXXhS0168opiOjJEJdZByi9EkZAeZBsoDKPTT2sYTroK34WZASFUfgUeRJcXYZBZC4xEHY5zXZCNs9PWAkvAsI28f6egJveTkAf5QcBt4V4ZC8kzQP77iFjRQZDZD";
 
             var repository = new MongoRepositoryBase<Restaurant>("mongodb://localhost/LunchBox", "RestaurantsRaw");
             var path = "https://graph.facebook.com/v3.1/search?fields=about,app_links,checkins,cover,description,engagement,hours,id,is_permanently_closed,is_verified,link,location,name,overall_star_rating,parking,payment_options,phone,price_range,rating_count,single_line_address,website,picture{height,url,width},photos&q=" + query + "&type=place&limit=999999&access_token=" + tokken;
@@ -209,7 +225,7 @@ namespace LunchCrawler
                 //  on the host system's PATH environment variable.
                 var link = restaurant.link.Split(new[] { ".com" }, StringSplitOptions.None)[1];
                 link = "https://m.facebook.com" + link + "posts/";
-                browser.Navigate().GoToUrl("https://m.facebook.com/restoranas.optimistai/");
+                browser.Navigate().GoToUrl(link);
 
                 var posts = browser.FindElements(By.CssSelector("#pages_msite_body_contents .story_body_container"));
 
@@ -227,11 +243,14 @@ namespace LunchCrawler
 
                     IWebElement time = null;
                     IWebElement withoutMoreButton = null;
+                    IWebElement imagelocation = null;
+                    IWebElement image = null;
 
                     try
                     {
                         time = post.FindElement(By.CssSelector("[data-sigil=\"m-feed-voice-subtitle\"] abbr"));
                         withoutMoreButton = post.FindElement(By.CssSelector("[data-ad-preview=\"message\"] span"));
+                        imagelocation = post.FindElement(By.CssSelector("i.img"));
                     }
                     catch (Exception e)
                     {
@@ -254,6 +273,8 @@ namespace LunchCrawler
                     {
 
                     }
+
+                   
 
                     try
                     {
@@ -282,12 +303,22 @@ namespace LunchCrawler
 
                                 var deal = new LunchDeal();
                                 deal.Description = text;
-                                deal.ImageUrl = restaurant.picture.data.url;
+                                
                                 deal.RestaurantId = restaurant.id;
                                 deal.id = restaurant.id;
                                 deal.time = time.Text;
                                 deal.Restaurant = restaurant;
 
+                                try
+                                {
+                                    post.Click();
+                                    image = browser.FindElement(By.CssSelector("div[data-full-size-href]"));
+                                    deal.ImageUrl = image.GetAttribute("data-full-size-href");
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine(e);
+                                }
 
                                 try
                                 {
