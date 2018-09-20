@@ -53,6 +53,12 @@ namespace LunchCrawler
                     Search("Coffee");
                     Search("Sotus.vilkas.kaunas");
                     Search("restourant");
+                    Search("fast food");
+                    Search("fast food restourant");
+                    Search("virtuve");
+                    Search("virtuvė");
+                    Search("grill");
+                    Search("Cofee");
                 }
                 else
                 {
@@ -72,7 +78,13 @@ namespace LunchCrawler
                         Search("šašlykinė");
                         Search("užeiga");
                         Search("Coffee");
+                        Search("Cofee");
                         Search("Sotus.vilkas.kaunas");
+                        Search("fast food");
+                        Search("fast food restourant");
+                        Search("virtuve");
+                        Search("virtuvė");
+                        Search("grill");
                     }
                 }
             }
@@ -141,65 +153,75 @@ namespace LunchCrawler
 
         static void Search(string query)
         {
-            var tokken = "EAADuFSmwLuEBACdHJLCTdZCepNfUk0MPkpOOZAkAReyjeLa9vpWjBZA7fVUMQ4S66AQfW3v9zZBkb2DM89czFBqJZAJXXhS0168opiOjJEJdZByi9EkZAeZBsoDKPTT2sYTroK34WZASFUfgUeRJcXYZBZC4xEHY5zXZCNs9PWAkvAsI28f6egJveTkAf5QcBt4V4ZC8kzQP77iFjRQZDZD";
-
-            var repository = new MongoRepositoryBase<Restaurant>("mongodb://localhost/LunchBox", "RestaurantsRaw");
-            var path = "https://graph.facebook.com/v3.1/search?fields=about,app_links,checkins,cover,description,engagement,hours,id,is_permanently_closed,is_verified,link,location,name,overall_star_rating,parking,payment_options,phone,price_range,rating_count,single_line_address,website,picture{height,url,width},photos&q=" + query + "&type=place&limit=999999&access_token=" + tokken;
-            bool searchNext = true;
-            while (searchNext)
+            try
             {
-                var result = GetProductAsync(path).Result;
+                var tokken =
+                    "EAAFsGfQAdhoBAIf8OpfB1RTFFvORIXHEQxqp16Oo9BciBiN5iXnwQqauDZCg2cZBUSpc2dXZCiBTfVnoKlynI4QgCHrHvlk46rWhDtk8pk2VZBFn5JhmQ9iPvoCXa4F91ZAWXVFZCG8ReZCZAbYZAD9vsjiMCVaobGZB9l1JldQZCz7CA2XyvgZAK3CJSIBFgjmX3FqGhCFZABr4TkgZDZD";
 
-
-                foreach (var restaurant in result.data)
+                var repository = new MongoRepositoryBase<Restaurant>("mongodb://localhost/LunchBox", "RestaurantsRaw");
+                var path =
+                    "https://graph.facebook.com/v3.1/search?fields=about,app_links,checkins,cover,description,engagement,hours,id,is_permanently_closed,is_verified,link,location,name,overall_star_rating,parking,payment_options,phone,price_range,rating_count,single_line_address,website,picture{height,url,width},photos&q=" +
+                    query + "&type=place&limit=999999&access_token=" + tokken;
+                bool searchNext = true;
+                while (searchNext)
                 {
-                    try
+                    var result = GetProductAsync(path).Result;
+
+
+                    foreach (var restaurant in result.data)
                     {
                         try
                         {
-                            repository.UpdateOne(restaurant);
+                            try
+                            {
+                                repository.UpdateOne(restaurant);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine(ex.Message);
+                                restaurant.location.PointLocation = new GeoJsonPoint<GeoJson2DGeographicCoordinates>(
+                                    new GeoJson2DGeographicCoordinates(restaurant.location.longitude,
+                                        restaurant.location.latitude));
+                                repository.Insert(restaurant);
+                            }
+
+
+                            Console.WriteLine("INSERTED: " + restaurant.name);
                         }
                         catch (Exception ex)
                         {
+                            Console.WriteLine("FAILED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!: " + restaurant.name);
                             Console.WriteLine(ex.Message);
-                            restaurant.location.PointLocation = new GeoJsonPoint<GeoJson2DGeographicCoordinates>(
-                                new GeoJson2DGeographicCoordinates(restaurant.location.longitude,
-                                    restaurant.location.latitude));
-                            repository.Insert(restaurant);
                         }
-
-
-                        Console.WriteLine("INSERTED: " + restaurant.name);
                     }
-                    catch (Exception ex)
+
+                    try
                     {
-                        Console.WriteLine("FAILED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!: " + restaurant.name);
-                        Console.WriteLine(ex.Message);
+                        path = result.paging.next;
+                        Console.WriteLine("Search added for " + path);
+
+                        if (result.paging.next.Length > 0)
+                        {
+
+                        }
+                        else
+                        {
+                            searchNext = false;
+                        }
                     }
-                }
-
-                try
-                {
-                    path = result.paging.next;
-                    Console.WriteLine("Search added for " + path);
-
-                    if (result.paging.next.Length > 0)
-                    {
-
-                    }
-                    else
+                    catch (Exception e)
                     {
                         searchNext = false;
                     }
+
                 }
-                catch (Exception e)
-                {
-                    searchNext = false;
-                }
+
+                Console.WriteLine("Done ");
+            }
+            catch (Exception ex)
+            {
 
             }
-
-            Console.WriteLine("Done ");
         }
 
         static async Task<RootObject> GetProductAsync(string path)
@@ -286,10 +308,7 @@ namespace LunchCrawler
                                 withoutMoreButton.Text.ToLower().Contains("dienos") ||
                                 withoutMoreButton.Text.ToLower().Contains("pietu") ||
                                 withoutMoreButton.Text.ToLower().Contains("pietums") ||
-                                withoutMoreButton.Text.ToLower().Contains("pasiulymas") ||
-                                withoutMoreButton.Text.ToLower().Contains("pasiūlymas") ||
-                                withoutMoreButton.Text.ToLower().Contains("sriuba") ||
-                                withoutMoreButton.Text.ToLower().Contains("piet"))
+                                withoutMoreButton.Text.ToLower().Contains("sriuba"))
                             {
                                 string text = withoutMoreButton.Text;
 
